@@ -1,0 +1,14 @@
+.venv/
+alignn310/
+__pycache__/
+.pytest_cache/
+*.pyc
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+build/
+.DS_Store
+sampletrain_data/
+sampleval_data/
+sampletest_data/
