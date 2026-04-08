@@ -26,6 +26,71 @@ const PHASE_CONTENT = {
   },
 };
 
+function estimateConductivity(result) {
+  if (!result) return null;
+  if (result.phase === "solid") {
+    return Math.pow(10, result.prediction);
+  }
+  return Math.exp(result.prediction);
+}
+
+function formatScientific(value) {
+  if (!Number.isFinite(value) || value <= 0) return "Unavailable";
+  return value.toExponential(2).replace("e", " x 10^");
+}
+
+function buildPerformanceSnapshot(result) {
+  if (!result) return null;
+
+  const estimatedConductivity = estimateConductivity(result);
+  const targetRange =
+    result.phase === "solid"
+      ? "Around 10^-4 to 10^-3 S/cm or higher is typically desirable for room-temperature solid electrolytes."
+      : "Around 10^-3 to 10^-2 S/cm is a common target window for room-temperature liquid electrolytes.";
+
+  let rating = "Developing";
+  if (result.phase === "solid") {
+    if (estimatedConductivity >= 1e-3) rating = "Excellent";
+    else if (estimatedConductivity >= 1e-4) rating = "Good";
+    else if (estimatedConductivity >= 1e-5) rating = "Moderate";
+    else rating = "Limited";
+  } else {
+    if (estimatedConductivity >= 1e-2) rating = "Excellent";
+    else if (estimatedConductivity >= 5e-3) rating = "Good";
+    else if (estimatedConductivity >= 1e-3) rating = "Moderate";
+    else rating = "Limited";
+  }
+
+  const familyLabel =
+    result.phase === "solid"
+      ? result.matched_record.chemical_family || result.matched_record.family || "solid electrolyte"
+      : "liquid electrolyte blend";
+
+  const explanation =
+    result.phase === "solid"
+      ? `This ${familyLabel.toLowerCase()} candidate is estimated near ${formatScientific(estimatedConductivity)} S/cm. ${
+          rating === "Excellent" || rating === "Good"
+            ? "That places it in a promising range for fast lithium-ion transport in solid-state systems."
+            : rating === "Moderate"
+              ? "That suggests usable transport, but it may still need composition or interface optimization."
+              : "That indicates slower ion transport than typically desired for strong solid-electrolyte performance."
+        }`
+      : `This formulation is estimated near ${formatScientific(estimatedConductivity)} S/cm. ${
+          rating === "Excellent" || rating === "Good"
+            ? "That is a healthy conductivity zone for liquid electrolytes and suggests efficient ion mobility."
+            : rating === "Moderate"
+              ? "That is workable, though solvent balance or salt concentration may still be improved."
+              : "That falls on the low side, so ion transport is likely weaker than ideal liquid-electrolyte targets."
+        }`;
+
+  return {
+    targetRange,
+    rating,
+    estimatedConductivity: formatScientific(estimatedConductivity),
+    explanation,
+  };
+}
+
 export default function App() {
   const [phase, setPhase] = useState(null);
   const [formula, setFormula] = useState("");
@@ -33,6 +98,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const current = phase ? PHASE_CONTENT[phase] : null;
+  const snapshot = buildPerformanceSnapshot(result);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -184,25 +250,23 @@ export default function App() {
                   <div className="mt-8 grid gap-4 sm:grid-cols-2">
                     <CountGauge value={result.prediction} label="Predicted Conductivity" />
                     <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
-                      <p className="text-sm uppercase tracking-[0.35em] text-white/50">Graph Stats</p>
+                      <p className="text-sm uppercase tracking-[0.35em] text-white/50">Performance Snapshot</p>
                       <div className="mt-5 space-y-3 text-white/80">
-                        <div className="flex items-center justify-between">
-                          <span>Graph type</span>
-                          <span className="text-white/55">{result.graph_stats.graph_type}</span>
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.28em] text-white/45">Typical Target</p>
+                          <p className="mt-2 leading-6 text-white/72">{snapshot.targetRange}</p>
+                        </div>
+                        <div className="flex items-center justify-between border-y border-white/8 py-3">
+                          <span>Performance rating</span>
+                          <span className="text-white/55">{snapshot.rating}</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span>Nodes</span>
-                          <span className="text-white/55">{result.graph_stats.node_count}</span>
+                          <span>Estimated conductivity</span>
+                          <span className="text-right text-white/55">{snapshot.estimatedConductivity} S/cm</span>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <span>Edges</span>
-                          <span className="text-white/55">{result.graph_stats.edge_count}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span>Boundary mode</span>
-                          <span className="text-white/55">
-                            {result.graph_stats.periodic_boundary ? "Periodic" : "Cluster"}
-                          </span>
+                        <div className="pt-2">
+                          <p className="text-xs uppercase tracking-[0.28em] text-white/45">Why This Result</p>
+                          <p className="mt-2 leading-6 text-white/72">{snapshot.explanation}</p>
                         </div>
                       </div>
                     </div>
