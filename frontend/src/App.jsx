@@ -2,7 +2,7 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Atom, ChevronLeft, FlaskConical, Sparkles } from "lucide-react";
 
-import { predict } from "./lib/api";
+import { getExample, predict } from "./lib/api";
 import { PhaseCard } from "./components/ui/PhaseCard";
 import { ScannerOverlay } from "./components/ui/ScannerOverlay";
 import { CountGauge } from "./components/ui/CountGauge";
@@ -47,6 +47,19 @@ export default function App() {
       setError(submissionError.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleUseExample() {
+    if (!phase) return;
+
+    setError("");
+    try {
+      const data = await getExample(phase);
+      setFormula(data.formula);
+      setResult(null);
+    } catch (exampleError) {
+      setError(exampleError.message);
     }
   }
 
@@ -153,9 +166,7 @@ export default function App() {
                     </button>
                     <button
                       type="button"
-                      onClick={() =>
-                        setFormula(phase === "solid" ? PHASE_CONTENT.solid.placeholder : PHASE_CONTENT.liquid.placeholder)
-                      }
+                      onClick={handleUseExample}
                       className="rounded-full border border-white/15 bg-white/5 px-6 py-3 font-display text-sm uppercase tracking-[0.3em] text-white/75"
                     >
                       Use Example

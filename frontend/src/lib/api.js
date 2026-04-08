@@ -20,3 +20,14 @@ export async function predict(payload) {
 
   return response.json();
 }
+
+export async function getExample(phase) {
+  const response = await fetch(`${API_BASE}/example?phase=${phase}`);
+
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({}));
+    throw new Error(detail.detail || "Could not load example");
+  }
+
+  return response.json();
+}
