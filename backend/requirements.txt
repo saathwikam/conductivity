@@ -5,3 +5,4 @@ pandas==2.2.3
 numpy==2.2.4
 python-multipart==0.0.20
 torch==2.7.0
+rdkit-pypi==2022.9.5
