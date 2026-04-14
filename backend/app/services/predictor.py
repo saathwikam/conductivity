@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from difflib import SequenceMatcher
 from pathlib import Path
+import re
 from typing import Any
 
 import pandas as pd
@@ -47,6 +48,7 @@ class PredictionService:
             raise ValueError("Solid mode expects a solid electrolyte chemical formula, not a liquid formulation.")
 
         normalized = normalize_formula(formula)
+        lithium_warnings = self._solid_lithium_warnings(normalized)
         dataset = load_solid_dataset()
         exact = dataset[dataset["formula_key"] == normalized.replace(" ", "").lower()]
         if not exact.empty:
@@ -87,6 +89,7 @@ class PredictionService:
             "matched_record": record,
             "phase": "solid",
             "narrative": narrative,
+            "warnings": lithium_warnings,
         }
 
     def _predict_liquid(self, formulation: str) -> dict[str, Any]:
@@ -94,6 +97,7 @@ class PredictionService:
             raise ValueError(
                 "Liquid mode expects a liquid electrolyte formulation such as 'LiPF6 in EC/EMC', not a solid formula."
             )
+        lithium_warnings = self._liquid_lithium_warnings(formulation)
 
         dataset = load_liquid_dataset()
         key = formulation.replace(" ", "").lower()
@@ -136,7 +140,44 @@ class PredictionService:
                 if trained_result
                 else f"Matched against the closest liquid formulation signature for {record['formulation']}."
             ),
+            "warnings": lithium_warnings,
         }
+
+    def _solid_lithium_warnings(self, formula: str) -> list[str]:
+        composition = parse_composition(formula)
+        lithium_amount = composition.get("Li", 0.0)
+        if lithium_amount <= 0:
+            raise ValueError("Solid electrolyte mode requires a lithium-containing formula.")
+
+        warnings = []
+        total_atoms = sum(composition.values())
+        lithium_fraction = lithium_amount / total_atoms if total_atoms else 0.0
+        if not formula.replace(" ", "").startswith("Li"):
+            warnings.append(
+                "Lithium is present, but it is not the leading element in the formula; verify that this is a lithium-ion electrolyte."
+            )
+        if lithium_fraction < 0.10:
+            warnings.append(
+                "Lithium is present at a low stoichiometric fraction, so this may not behave like a lithium-dominant electrolyte."
+            )
+        return warnings
+
+    def _liquid_lithium_warnings(self, formulation: str) -> list[str]:
+        lowered = formulation.lower()
+        has_lithium_component = (
+            any(component in lowered for component in ("lipf6", "lifsi"))
+            or parse_composition(formulation).get("Li", 0.0) > 0
+        )
+        if not has_lithium_component:
+            raise ValueError("Liquid electrolyte mode requires a lithium salt or lithium-containing formulation.")
+
+        leading_component = re.split(r"\s+in\s+|/|\+|,|\|", formulation.strip(), maxsplit=1, flags=re.IGNORECASE)[0]
+        warnings = []
+        if "li" not in leading_component.lower():
+            warnings.append(
+                "Lithium is present, but it is not in the leading formulation component; verify the lithium salt content before trusting the prediction."
+            )
+        return warnings
 
     def _closest_solid_match(self, dataset: pd.DataFrame, formula: str) -> pd.Series:
         target_comp = parse_composition(formula)
