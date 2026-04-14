@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 
@@ -10,6 +11,48 @@ COMPONENT_MAP_PATH = ROOT_DIR / "training" / "liquid_component_map.json"
 
 with COMPONENT_MAP_PATH.open("r", encoding="utf-8") as handle:
     COMPONENT_MAP = json.load(handle)
+
+
+LIQUID_COMPONENT_SPLIT_PATTERN = re.compile(r"\s+in\s+|/|\+|,|\|", flags=re.IGNORECASE)
+
+
+def _component_key(value: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", value.lower())
+
+
+SUPPORTED_COMPONENTS = {
+    _component_key(component_name): component_name
+    for component_name in COMPONENT_MAP
+}
+
+
+def invalid_liquid_formulation_reason(formulation: str) -> str | None:
+    tokens = [
+        token.strip()
+        for token in LIQUID_COMPONENT_SPLIT_PATTERN.split(formulation.strip())
+        if token.strip()
+    ]
+    if len(tokens) < 2:
+        return "Liquid mode expects a supported formulation such as LiPF6 in EC/EMC."
+
+    unknown_tokens = [
+        token
+        for token in tokens
+        if _component_key(token) not in SUPPORTED_COMPONENTS
+    ]
+    if unknown_tokens:
+        supported = ", ".join(sorted(COMPONENT_MAP))
+        return f"Unsupported liquid component(s): {', '.join(unknown_tokens)}. Supported components are: {supported}."
+
+    roles = [
+        COMPONENT_MAP[SUPPORTED_COMPONENTS[_component_key(token)]]["role"].lower()
+        for token in tokens
+    ]
+    if "salt" not in roles:
+        return "Liquid electrolyte mode requires a supported lithium salt such as LiPF6."
+    if "solvent" not in roles:
+        return "Liquid electrolyte mode requires at least one supported solvent such as EC, EMC, or PC."
+    return None
 
 
 def parse_liquid_formulation(

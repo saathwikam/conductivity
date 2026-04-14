@@ -12,11 +12,12 @@ from app.services.chemistry import (
     build_solid_graph_stats,
     is_liquid_like_input,
     is_solid_like_formula,
+    invalid_solid_formula_reason,
     normalize_formula,
     parse_composition,
 )
 from app.services.dataset_store import load_liquid_dataset, load_solid_dataset
-from app.services.liquid_preprocessor import parse_liquid_formulation
+from app.services.liquid_preprocessor import invalid_liquid_formulation_reason, parse_liquid_formulation
 from app.services.liquid_model_runner import LiquidModelRunner
 from app.services.solid_model_runner import SolidAlignnRunner
 
@@ -55,6 +56,9 @@ class PredictionService:
     def _predict_solid(self, formula: str) -> dict[str, Any]:
         if is_liquid_like_input(formula):
             raise ValueError("Solid mode expects a solid electrolyte chemical formula, not a liquid formulation.")
+        invalid_reason = invalid_solid_formula_reason(formula)
+        if invalid_reason:
+            raise ValueError(invalid_reason)
 
         normalized = normalize_formula(formula)
         lithium_warnings = self._solid_lithium_warnings(normalized)
@@ -106,6 +110,9 @@ class PredictionService:
             raise ValueError(
                 "Liquid mode expects a liquid electrolyte formulation such as 'LiPF6 in EC/EMC', not a solid formula."
             )
+        invalid_reason = invalid_liquid_formulation_reason(formulation)
+        if invalid_reason:
+            raise ValueError(invalid_reason)
         lithium_warnings = self._liquid_lithium_warnings(formulation)
 
         dataset = load_liquid_dataset()

@@ -6,6 +6,19 @@ import re
 
 FORMULA_TOKEN_PATTERN = re.compile(r"([A-Z][a-z]?)([0-9]*\.?[0-9]*)")
 SOLID_FORMULA_PATTERN = re.compile(r"^([A-Z][a-z]?[0-9]*\.?[0-9]*)+$")
+VALID_ELEMENT_SYMBOLS = {
+    "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne",
+    "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar",
+    "K", "Ca", "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
+    "Ga", "Ge", "As", "Se", "Br", "Kr", "Rb", "Sr", "Y", "Zr", "Nb", "Mo",
+    "Tc", "Ru", "Rh", "Pd", "Ag", "Cd", "In", "Sn", "Sb", "Te", "I", "Xe",
+    "Cs", "Ba", "La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb", "Dy",
+    "Ho", "Er", "Tm", "Yb", "Lu", "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt",
+    "Au", "Hg", "Tl", "Pb", "Bi", "Po", "At", "Rn", "Fr", "Ra", "Ac", "Th",
+    "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No",
+    "Lr", "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds", "Rg", "Cn", "Nh", "Fl",
+    "Mc", "Lv", "Ts", "Og",
+}
 KNOWN_LIQUID_COMPONENTS = {
     "lipf6": ["Li", "P", "F", "F", "F", "F", "F", "F"],
     "lifsi": ["Li", "N", "S", "O", "O", "F", "F", "F", "F", "C", "C"],
@@ -45,6 +58,23 @@ def is_liquid_like_input(raw_value: str) -> bool:
 def is_solid_like_formula(raw_value: str) -> bool:
     compact = re.sub(r"\s+", "", raw_value)
     return bool(compact) and bool(SOLID_FORMULA_PATTERN.fullmatch(compact))
+
+
+def invalid_solid_formula_reason(raw_value: str) -> str | None:
+    compact = re.sub(r"\s+", "", raw_value)
+    if not compact:
+        return "Formula input is required."
+    if not SOLID_FORMULA_PATTERN.fullmatch(compact):
+        return "Enter a valid solid formula using element symbols and numeric stoichiometry, such as Li7La3Zr2O12."
+
+    invalid_elements = sorted(
+        element
+        for element in parse_composition(compact)
+        if element not in VALID_ELEMENT_SYMBOLS
+    )
+    if invalid_elements:
+        return f"Unknown element symbol(s): {', '.join(invalid_elements)}."
+    return None
 
 
 def normalize_formula(raw_formula: str) -> str:
