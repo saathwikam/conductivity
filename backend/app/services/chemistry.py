@@ -21,7 +21,10 @@ VALID_ELEMENT_SYMBOLS = {
 }
 KNOWN_LIQUID_COMPONENTS = {
     "lipf6": ["Li", "P", "F", "F", "F", "F", "F", "F"],
-    "lifsi": ["Li", "N", "S", "O", "O", "F", "F", "F", "F", "C", "C"],
+    "libf4": ["Li", "B", "F", "F", "F", "F"],
+    "litfsi": ["Li", "N", "S", "S", "O", "O", "O", "O", "C", "C", "F", "F", "F", "F", "F", "F"],
+    "lifsi": ["Li", "N", "S", "S", "O", "O", "O", "O", "F", "F"],
+    "liclo4": ["Li", "Cl", "O", "O", "O", "O"],
     "ec": ["C", "C", "O", "O", "O", "H", "H", "H", "H"],
     "emc": ["C", "C", "C", "O", "O", "O", "H", "H", "H", "H", "H", "H"],
     "dmc": ["C", "C", "C", "O", "O", "O", "H", "H", "H", "H", "H", "H"],

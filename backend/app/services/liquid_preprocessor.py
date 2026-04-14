@@ -34,6 +34,24 @@ SUPPORTED_COMPONENTS = {
 }
 
 
+def _extract_component_amount(formulation: str, component_name: str) -> float | None:
+    pattern = re.compile(
+        rf"(?<![A-Za-z0-9]){re.escape(component_name)}\s*([0-9]+(?:\.[0-9]+)?)?\s*(mg|g|kg|ml|l)?(?![A-Za-z])",
+        flags=re.IGNORECASE,
+    )
+    match = pattern.search(formulation)
+    if not match or not match.group(1):
+        return None
+
+    amount = float(match.group(1))
+    unit = (match.group(2) or "g").lower()
+    if unit == "mg":
+        return amount / 1000.0
+    if unit == "kg":
+        return amount * 1000.0
+    return amount
+
+
 def invalid_liquid_formulation_reason(formulation: str) -> str | None:
     tokens = [
         token.strip()
@@ -41,7 +59,7 @@ def invalid_liquid_formulation_reason(formulation: str) -> str | None:
         if token.strip()
     ]
     if len(tokens) < 2:
-        return "Liquid mode expects a supported formulation such as LiPF6 in EC/EMC."
+        return "Liquid mode expects a supported formulation such as LiPF6 in EC/EMC or LiBF4 in PC/EC."
 
     unknown_tokens = [
         token
@@ -57,7 +75,7 @@ def invalid_liquid_formulation_reason(formulation: str) -> str | None:
         for token in tokens
     ]
     if "salt" not in roles:
-        return "Liquid electrolyte mode requires a supported lithium salt such as LiPF6."
+        return "Liquid electrolyte mode requires a supported lithium salt such as LiPF6, LiBF4, LiTFSI, LiFSI, or LiClO4."
     if "solvent" not in roles:
         return "Liquid electrolyte mode requires at least one supported solvent such as EC, EMC, or PC."
     return None
@@ -77,7 +95,8 @@ def parse_liquid_formulation(
         if component_name.replace(" ", "") not in normalized:
             continue
 
-        amount = float(component_amounts.get(component_name, 0.0) or 0.0)
+        parsed_amount = _extract_component_amount(formulation, component_name)
+        amount = parsed_amount if parsed_amount is not None else float(component_amounts.get(component_name, 0.0) or 0.0)
         total_mass += max(amount, 0.0)
         components.append(
             {
