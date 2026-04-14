@@ -1,0 +1,42 @@
+{
+  "PC": {
+    "name": "Propylene carbonate",
+    "smiles": "CC1COC(=O)O1",
+    "role": "solvent"
+  },
+  "EC": {
+    "name": "Ethylene carbonate",
+    "smiles": "O=C1OCCO1",
+    "role": "solvent"
+  },
+  "EMC": {
+    "name": "Ethyl methyl carbonate",
+    "smiles": "COC(OCC)=O",
+    "role": "solvent"
+  },
+  "LiPF6": {
+    "name": "Lithium hexafluorophosphate",
+    "smiles": "[Li]P(F)(F)(F)(F)(F)F",
+    "role": "salt"
+  },
+  "LiBF4": {
+    "name": "Lithium tetrafluoroborate",
+    "smiles": "[Li+].[B-](F)(F)(F)F",
+    "role": "salt"
+  },
+  "LiTFSI": {
+    "name": "Lithium bis(trifluoromethanesulfonyl)imide",
+    "smiles": "[Li+].[N-](S(=O)(=O)C(F)(F)F)S(=O)(=O)C(F)(F)F",
+    "role": "salt"
+  },
+  "LiFSI": {
+    "name": "Lithium bis(fluorosulfonyl)imide",
+    "smiles": "[Li+].[N-](S(=O)(=O)F)S(=O)(=O)F",
+    "role": "salt"
+  },
+  "LiClO4": {
+    "name": "Lithium perchlorate",
+    "smiles": "[Li+].[O-]Cl(=O)(=O)=O",
+    "role": "salt"
+  }
+}
