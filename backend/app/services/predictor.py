@@ -23,6 +23,15 @@ from app.services.solid_model_runner import SolidAlignnRunner
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
 MODELS_DIR = ROOT_DIR / "models"
+COMMON_ANIONS = {"O", "F", "S", "Se", "Cl", "Br", "I", "N"}
+KNOWN_LITHIUM_SOLID_SCAFFOLDS = (
+    frozenset({"Li", "La", "Zr", "O"}),  # LLZO / garnet-like oxides
+    frozenset({"Li", "La", "Ti", "O"}),  # LLTO-type perovskites
+    frozenset({"Li", "Al", "Ti", "P", "O"}),  # LATP-type NASICONs
+    frozenset({"Li", "Al", "Ge", "P", "O"}),  # LAGP-type NASICONs
+    frozenset({"Li", "P", "S"}),  # sulfide / argyrodite bases, with optional halides
+    frozenset({"Li", "Si", "P", "O"}),  # LISICON-type oxides
+)
 
 
 class PredictionService:
@@ -152,15 +161,39 @@ class PredictionService:
         warnings = []
         total_atoms = sum(composition.values())
         lithium_fraction = lithium_amount / total_atoms if total_atoms else 0.0
-        if not formula.replace(" ", "").startswith("Li"):
+        known_lithium_electrolyte = self._matches_known_lithium_solid_scaffold(composition)
+        leading_lithium = formula.replace(" ", "").startswith("Li")
+        lithium_dominant = self._lithium_is_dominant_mobile_cation(composition)
+
+        if not leading_lithium and not known_lithium_electrolyte:
             warnings.append(
                 "Lithium is present, but it is not the leading element in the formula; verify that this is a lithium-ion electrolyte."
             )
-        if lithium_fraction < 0.10:
+        if not lithium_dominant and not known_lithium_electrolyte:
+            warnings.append(
+                "Lithium is present, but it is not the dominant non-anion element; verify that this is primarily a lithium-ion electrolyte."
+            )
+        if lithium_fraction < 0.10 and not known_lithium_electrolyte:
             warnings.append(
                 "Lithium is present at a low stoichiometric fraction, so this may not behave like a lithium-dominant electrolyte."
             )
         return warnings
+
+    def _lithium_is_dominant_mobile_cation(self, composition: dict[str, float]) -> bool:
+        lithium_amount = composition.get("Li", 0.0)
+        cation_amounts = [
+            amount
+            for element, amount in composition.items()
+            if element != "Li" and element not in COMMON_ANIONS
+        ]
+        return not cation_amounts or lithium_amount >= max(cation_amounts)
+
+    def _matches_known_lithium_solid_scaffold(self, composition: dict[str, float]) -> bool:
+        elements = frozenset(composition)
+        lithium_amount = composition.get("Li", 0.0)
+        if lithium_amount <= 0:
+            return False
+        return any(scaffold.issubset(elements) for scaffold in KNOWN_LITHIUM_SOLID_SCAFFOLDS)
 
     def _liquid_lithium_warnings(self, formulation: str) -> list[str]:
         lowered = formulation.lower()
