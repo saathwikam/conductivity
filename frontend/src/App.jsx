@@ -10,7 +10,6 @@ import { CountGauge } from "./components/ui/CountGauge";
 const PHASE_CONTENT = {
   solid: {
     title: "Solid Electrolyte",
-    subtitle: "Periodic graph analysis for ceramic and glassy lithium solid electrolytes.",
     accentClass: "bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.45),transparent_65%)]",
     icon: <Atom className="h-8 w-8" />,
     placeholder: "Li7La3Zr2O12",
@@ -18,7 +17,6 @@ const PHASE_CONTENT = {
   },
   liquid: {
     title: "Liquid Electrolyte",
-    subtitle: "Cluster-based graph analysis for liquid lithium salt and solvent formulations.",
     accentClass: "bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.45),transparent_65%)]",
     icon: <FlaskConical className="h-8 w-8" />,
     placeholder: "LiPF6 in EC/EMC",
@@ -200,9 +198,6 @@ export default function App() {
                     <h2 className="font-display text-3xl uppercase tracking-[0.14em] text-white">{current.title}</h2>
                   </div>
                 </div>
-
-                <p className="mt-5 max-w-2xl text-lg leading-7 text-white/68">{current.subtitle}</p>
-
                 <form onSubmit={handleSubmit} className="mt-8 space-y-5">
                   <label className="block">
                     <span className="mb-3 block text-sm uppercase tracking-[0.35em] text-white/45">
@@ -243,6 +238,14 @@ export default function App() {
                 {error ? (
                   <div className="mt-5 rounded-2xl border border-rose-400/25 bg-rose-400/10 px-4 py-3 text-rose-100">
                     {error}
+                  </div>
+                ) : null}
+
+                {result?.warnings?.length ? (
+                  <div className="mt-5 rounded-2xl border border-amber-300/25 bg-amber-300/10 px-4 py-3 text-amber-100">
+                    {result.warnings.map((warning) => (
+                      <p key={warning}>{warning}</p>
+                    ))}
                   </div>
                 ) : null}
 
