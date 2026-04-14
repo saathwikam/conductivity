@@ -20,6 +20,14 @@ def _component_key(value: str) -> str:
     return re.sub(r"[^a-z0-9]", "", value.lower())
 
 
+def _component_name_key(value: str) -> str:
+    compact = _component_key(value)
+    for supported_key in sorted(SUPPORTED_COMPONENTS, key=len, reverse=True):
+        if compact == supported_key or re.fullmatch(rf"{supported_key}\d*\.?\d*(mg|g|kg|ml|l)?", compact):
+            return supported_key
+    return compact
+
+
 SUPPORTED_COMPONENTS = {
     _component_key(component_name): component_name
     for component_name in COMPONENT_MAP
@@ -38,14 +46,14 @@ def invalid_liquid_formulation_reason(formulation: str) -> str | None:
     unknown_tokens = [
         token
         for token in tokens
-        if _component_key(token) not in SUPPORTED_COMPONENTS
+        if _component_name_key(token) not in SUPPORTED_COMPONENTS
     ]
     if unknown_tokens:
         supported = ", ".join(sorted(COMPONENT_MAP))
         return f"Unsupported liquid component(s): {', '.join(unknown_tokens)}. Supported components are: {supported}."
 
     roles = [
-        COMPONENT_MAP[SUPPORTED_COMPONENTS[_component_key(token)]]["role"].lower()
+        COMPONENT_MAP[SUPPORTED_COMPONENTS[_component_name_key(token)]]["role"].lower()
         for token in tokens
     ]
     if "salt" not in roles:
