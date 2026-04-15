@@ -36,7 +36,7 @@ SUPPORTED_COMPONENTS = {
 
 def _extract_component_amount(formulation: str, component_name: str) -> float | None:
     pattern = re.compile(
-        rf"(?<![A-Za-z0-9]){re.escape(component_name)}\s*([0-9]+(?:\.[0-9]+)?)?\s*(mg|g|kg|ml|l)?(?![A-Za-z])",
+        rf"(?<![A-Za-z0-9]){re.escape(component_name)}\s*[:=]?\s*([0-9]+(?:\.[0-9]+)?)?\s*(mg|g|kg|ml|l)?(?![A-Za-z])",
         flags=re.IGNORECASE,
     )
     match = pattern.search(formulation)

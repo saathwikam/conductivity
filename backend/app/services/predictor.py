@@ -126,12 +126,6 @@ class PredictionService:
         liquid_payload = parse_liquid_formulation(
             formulation,
             float(match["temperature_c"]),
-            component_amounts={
-                "PC": float(match["pc_g"]),
-                "EC": float(match["ec_g"]),
-                "EMC": float(match["emc_g"]),
-                "LiPF6": float(match["lipf6_g"]),
-            },
         )
         trained_result = self.liquid_model_runner.predict(liquid_payload)
         prediction = float(trained_result["prediction"]) if trained_result else float(match["ln_ionic_conductivity"])
