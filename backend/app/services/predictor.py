@@ -71,12 +71,10 @@ class PredictionService:
         graph_stats = build_solid_graph_stats(normalized)
         try:
             trained_result = self.solid_model_runner.predict(normalized)
-        except ValueError as exc:
-            if self.solid_model_runner.strict_mode_enabled():
-                raise ValueError(
-                    "No matching crystal structure was found in Materials Project for this solid formula, "
-                    "so solid ALIGNN prediction could not be completed."
-                ) from exc
+        except ValueError:
+            lithium_warnings.append(
+                "Solid structure inference was unavailable, so this result uses the closest dataset match."
+            )
             trained_result = None
         prediction = float(trained_result["prediction"]) if trained_result else float(match["log10_ionic_conductivity"])
         record = {
@@ -113,7 +111,7 @@ class PredictionService:
         invalid_reason = invalid_liquid_formulation_reason(formulation)
         if invalid_reason:
             raise ValueError(invalid_reason)
-        lithium_warnings = self._liquid_lithium_warnings(formulation)
+        lithium_warnings: list[str] = []
 
         dataset = load_liquid_dataset()
         key = formulation.replace(" ", "").lower()

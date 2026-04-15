@@ -42,11 +42,44 @@ except Exception:  # pragma: no cover - optional dependency in early setup
 
 def parse_composition(raw_formula: str) -> dict[str, float]:
     formula = raw_formula.replace(" ", "")
-    parts: dict[str, float] = {}
-    for element, amount in FORMULA_TOKEN_PATTERN.findall(formula):
-        value = float(amount) if amount else 1.0
-        parts[element] = parts.get(element, 0.0) + value
-    return parts
+    stack: list[dict[str, float]] = [{}]
+    index = 0
+
+    def read_number(start: int) -> tuple[float, int]:
+        end = start
+        while end < len(formula) and (formula[end].isdigit() or formula[end] == "."):
+            end += 1
+        if end == start:
+            return 1.0, start
+        return float(formula[start:end]), end
+
+    while index < len(formula):
+        char = formula[index]
+        if char == "(":
+            stack.append({})
+            index += 1
+            continue
+        if char == ")":
+            if len(stack) == 1:
+                raise ValueError("Unmatched closing parenthesis.")
+            group = stack.pop()
+            multiplier, index = read_number(index + 1)
+            for element, amount in group.items():
+                stack[-1][element] = stack[-1].get(element, 0.0) + amount * multiplier
+            continue
+        if char.isupper():
+            end = index + 1
+            if end < len(formula) and formula[end].islower():
+                end += 1
+            element = formula[index:end]
+            amount, index = read_number(end)
+            stack[-1][element] = stack[-1].get(element, 0.0) + amount
+            continue
+        raise ValueError(f"Unexpected formula token: {char}.")
+
+    if len(stack) != 1:
+        raise ValueError("Unmatched opening parenthesis.")
+    return stack[0]
 
 
 def is_liquid_like_input(raw_value: str) -> bool:
@@ -59,22 +92,22 @@ def is_liquid_like_input(raw_value: str) -> bool:
 
 
 def is_solid_like_formula(raw_value: str) -> bool:
-    compact = re.sub(r"\s+", "", raw_value)
-    return bool(compact) and bool(SOLID_FORMULA_PATTERN.fullmatch(compact))
+    return invalid_solid_formula_reason(raw_value) is None
 
 
 def invalid_solid_formula_reason(raw_value: str) -> str | None:
     compact = re.sub(r"\s+", "", raw_value)
     if not compact:
         return "Formula input is required."
-    if not SOLID_FORMULA_PATTERN.fullmatch(compact):
+    if not re.fullmatch(r"[A-Za-z0-9().]+", compact):
         return "Enter a valid solid formula using element symbols and numeric stoichiometry, such as Li7La3Zr2O12."
 
-    invalid_elements = sorted(
-        element
-        for element in parse_composition(compact)
-        if element not in VALID_ELEMENT_SYMBOLS
-    )
+    try:
+        composition = parse_composition(compact)
+    except ValueError:
+        return "Enter a valid solid formula using element symbols, parentheses, and numeric stoichiometry, such as Li3Fe2(PO4)3."
+
+    invalid_elements = sorted(element for element in composition if element not in VALID_ELEMENT_SYMBOLS)
     if invalid_elements:
         return f"Unknown element symbol(s): {', '.join(invalid_elements)}."
     return None
