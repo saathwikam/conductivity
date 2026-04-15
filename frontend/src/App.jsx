@@ -2,7 +2,7 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Atom, ChevronLeft, FlaskConical, Sparkles } from "lucide-react";
 
-import { getExample, predict } from "./lib/api";
+import { predict } from "./lib/api";
 import { PhaseCard } from "./components/ui/PhaseCard";
 import { ScannerOverlay } from "./components/ui/ScannerOverlay";
 import { CountGauge } from "./components/ui/CountGauge";
@@ -22,6 +22,25 @@ const PHASE_CONTENT = {
     placeholder: "LiPF6 in EC/EMC",
     helper: "Enter a liquid electrolyte formulation as a chemistry string.",
   },
+};
+
+const EXAMPLES = {
+  solid: [
+    "Li7La3Zr2O12",
+    "Li3Fe2(PO4)3",
+    "Li6BaLa2Ta2O12",
+    "Li1.3Al0.3Ti1.7(PO4)3",
+    "Li10GeP2S12",
+    "Li2S",
+  ],
+  liquid: [
+    "LiPF6 in EC/EMC",
+    "LiBF4 in PC/EC",
+    "LiTFSI in EC/EMC",
+    "LiFSI in PC/EMC",
+    "LiClO4 in PC",
+    "PC2.998g | EMC7.2006g | LiBF4:0.3009g",
+  ],
 };
 
 function estimateConductivity(result) {
@@ -95,6 +114,7 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [exampleIndex, setExampleIndex] = useState({ solid: 0, liquid: 0 });
   const current = phase ? PHASE_CONTENT[phase] : null;
   const snapshot = buildPerformanceSnapshot(result);
 
@@ -114,17 +134,18 @@ export default function App() {
     }
   }
 
-  async function handleUseExample() {
+  function handleUseExample() {
     if (!phase) return;
 
     setError("");
-    try {
-      const data = await getExample(phase);
-      setFormula(data.formula);
-      setResult(null);
-    } catch (exampleError) {
-      setError(exampleError.message);
-    }
+    const examples = EXAMPLES[phase];
+    const nextIndex = exampleIndex[phase] % examples.length;
+    setFormula(examples[nextIndex]);
+    setResult(null);
+    setExampleIndex((currentIndex) => ({
+      ...currentIndex,
+      [phase]: nextIndex + 1,
+    }));
   }
 
   function handleReset() {
