@@ -7,8 +7,6 @@ import { PhaseCard } from "./components/ui/PhaseCard";
 import { ScannerOverlay } from "./components/ui/ScannerOverlay";
 import { CountGauge } from "./components/ui/CountGauge";
 
-const KNOWN_LIQUID_TOKENS = ["lipf6", "libf4", "ec", "emc", "dmc", "pc"];
-
 const PHASE_CONTENT = {
   solid: {
     title: "Solid Electrolyte",
@@ -23,28 +21,10 @@ const PHASE_CONTENT = {
     subtitle: "Cluster-based graph analysis for liquid lithium salt and solvent formulations.",
     accentClass: "bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.45),transparent_65%)]",
     icon: <FlaskConical className="h-8 w-8" />,
-    placeholder: "LiPF6 in EC/EMC/DMC",
-    helper: "Enter a liquid electrolyte formulation as a chemistry string using solvents such as EC, EMC, and DMC.",
+    placeholder: "LiPF6 in EC/EMC",
+    helper: "Enter a liquid electrolyte formulation as a chemistry string.",
   },
 };
-
-function isLiquidLikeInput(value) {
-  const lowered = value.trim().toLowerCase();
-  if (/\s+in\s+|\/|\+|,|\|/.test(lowered)) return true;
-  const normalized = lowered.replace(/[^a-z0-9]/g, "");
-  return KNOWN_LIQUID_TOKENS.some((token) => normalized.includes(token));
-}
-
-function buildValidationMessage(phase, message) {
-  if (phase === "solid") {
-    if (message.includes("No matching crystal structure")) {
-      return "No matching crystal structure was found for this solid formula. Try a different composition or check the stoichiometry.";
-    }
-    return "Enter a valid solid formula using element symbols and numeric stoichiometry.";
-  }
-
-  return "Liquid mode expects a supported formulation such as LiPF6 in EC/EMC/DMC or LiBF4 in PC/EC/DMC.";
-}
 
 function estimateConductivity(result) {
   if (!result) return null;
@@ -124,26 +104,13 @@ export default function App() {
     event.preventDefault();
     if (!phase || !formula.trim()) return;
 
-    if (phase === "solid" && isLiquidLikeInput(formula)) {
-      setResult(null);
-      setError(buildValidationMessage("solid", ""));
-      return;
-    }
-
-    if (phase === "liquid" && !isLiquidLikeInput(formula)) {
-      setResult(null);
-      setError(buildValidationMessage("liquid", ""));
-      return;
-    }
-
     setLoading(true);
     setError("");
     try {
       const data = await predict({ phase, formula });
       setResult(data);
     } catch (submissionError) {
-      setResult(null);
-      setError(buildValidationMessage(phase, submissionError.message));
+      setError(submissionError.message);
     } finally {
       setLoading(false);
     }
@@ -181,7 +148,7 @@ export default function App() {
           <div>
             <p className="font-display text-sm uppercase tracking-[0.45em] text-white/50">Cyber-Lab Portal</p>
             <h1 className="mt-3 font-display text-4xl uppercase tracking-[0.18em] text-white sm:text-5xl">
-              Ionic Conductivity Prediction
+              Ionic SL
             </h1>
           </div>
           {phase ? (

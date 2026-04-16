@@ -6,7 +6,7 @@ from app.routers.predict import router as predict_router
 
 
 app = FastAPI(
-    title="Ionic Conductivity Prediction API",
+    title="Ionic SL API",
     version="0.1.0",
     description="Dual-phase ionic conductivity prediction service for solid and liquid lithium battery electrolytes.",
 )
@@ -14,14 +14,14 @@ app = FastAPI(
 
 @app.get("/")
 def root():
-    return {"status": "Ionic Conductivity Prediction API is running", "docs": "/docs"}
+    return {"status": "Ionic SL API is running", "docs": "/docs"}
 
 @app.get("/ui", response_class=HTMLResponse)
 def ui():
     return """
     <html>
         <head>
-            <title>Ionic Conductivity Prediction</title>
+            <title>Ionic SL Predictor</title>
         </head>
         <body style="font-family: Arial, sans-serif; max-width: 760px; margin: 50px auto; padding: 0 20px; line-height: 1.5;">
             <h2>⚡ Ionic Conductivity Predictor</h2>
