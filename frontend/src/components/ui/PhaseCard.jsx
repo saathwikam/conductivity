@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 
-export function PhaseCard({ title, accentClass, active, onClick, icon }) {
+export function PhaseCard({ title, subtitle, accentClass, active, onClick, icon }) {
   return (
     <motion.button
       whileHover={{ y: -8, scale: 1.01 }}
@@ -22,6 +22,7 @@ export function PhaseCard({ title, accentClass, active, onClick, icon }) {
         </div>
         <div>
           <h3 className="font-display text-3xl uppercase tracking-[0.18em] text-white">{title}</h3>
+          <p className="mt-3 max-w-xs text-base leading-6 text-white/68">{subtitle}</p>
         </div>
       </div>
     </motion.button>
