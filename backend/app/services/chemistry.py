@@ -6,25 +6,9 @@ import re
 
 FORMULA_TOKEN_PATTERN = re.compile(r"([A-Z][a-z]?)([0-9]*\.?[0-9]*)")
 SOLID_FORMULA_PATTERN = re.compile(r"^([A-Z][a-z]?[0-9]*\.?[0-9]*)+$")
-VALID_ELEMENT_SYMBOLS = {
-    "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne",
-    "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar",
-    "K", "Ca", "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
-    "Ga", "Ge", "As", "Se", "Br", "Kr", "Rb", "Sr", "Y", "Zr", "Nb", "Mo",
-    "Tc", "Ru", "Rh", "Pd", "Ag", "Cd", "In", "Sn", "Sb", "Te", "I", "Xe",
-    "Cs", "Ba", "La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb", "Dy",
-    "Ho", "Er", "Tm", "Yb", "Lu", "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt",
-    "Au", "Hg", "Tl", "Pb", "Bi", "Po", "At", "Rn", "Fr", "Ra", "Ac", "Th",
-    "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No",
-    "Lr", "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds", "Rg", "Cn", "Nh", "Fl",
-    "Mc", "Lv", "Ts", "Og",
-}
 KNOWN_LIQUID_COMPONENTS = {
     "lipf6": ["Li", "P", "F", "F", "F", "F", "F", "F"],
-    "libf4": ["Li", "B", "F", "F", "F", "F"],
-    "litfsi": ["Li", "N", "S", "S", "O", "O", "O", "O", "C", "C", "F", "F", "F", "F", "F", "F"],
-    "lifsi": ["Li", "N", "S", "S", "O", "O", "O", "O", "F", "F"],
-    "liclo4": ["Li", "Cl", "O", "O", "O", "O"],
+    "lifsi": ["Li", "N", "S", "O", "O", "F", "F", "F", "F", "C", "C"],
     "ec": ["C", "C", "O", "O", "O", "H", "H", "H", "H"],
     "emc": ["C", "C", "C", "O", "O", "O", "H", "H", "H", "H", "H", "H"],
     "dmc": ["C", "C", "C", "O", "O", "O", "H", "H", "H", "H", "H", "H"],
@@ -42,44 +26,11 @@ except Exception:  # pragma: no cover - optional dependency in early setup
 
 def parse_composition(raw_formula: str) -> dict[str, float]:
     formula = raw_formula.replace(" ", "")
-    stack: list[dict[str, float]] = [{}]
-    index = 0
-
-    def read_number(start: int) -> tuple[float, int]:
-        end = start
-        while end < len(formula) and (formula[end].isdigit() or formula[end] == "."):
-            end += 1
-        if end == start:
-            return 1.0, start
-        return float(formula[start:end]), end
-
-    while index < len(formula):
-        char = formula[index]
-        if char == "(":
-            stack.append({})
-            index += 1
-            continue
-        if char == ")":
-            if len(stack) == 1:
-                raise ValueError("Unmatched closing parenthesis.")
-            group = stack.pop()
-            multiplier, index = read_number(index + 1)
-            for element, amount in group.items():
-                stack[-1][element] = stack[-1].get(element, 0.0) + amount * multiplier
-            continue
-        if char.isupper():
-            end = index + 1
-            if end < len(formula) and formula[end].islower():
-                end += 1
-            element = formula[index:end]
-            amount, index = read_number(end)
-            stack[-1][element] = stack[-1].get(element, 0.0) + amount
-            continue
-        raise ValueError(f"Unexpected formula token: {char}.")
-
-    if len(stack) != 1:
-        raise ValueError("Unmatched opening parenthesis.")
-    return stack[0]
+    parts: dict[str, float] = {}
+    for element, amount in FORMULA_TOKEN_PATTERN.findall(formula):
+        value = float(amount) if amount else 1.0
+        parts[element] = parts.get(element, 0.0) + value
+    return parts
 
 
 def is_liquid_like_input(raw_value: str) -> bool:
@@ -92,25 +43,8 @@ def is_liquid_like_input(raw_value: str) -> bool:
 
 
 def is_solid_like_formula(raw_value: str) -> bool:
-    return invalid_solid_formula_reason(raw_value) is None
-
-
-def invalid_solid_formula_reason(raw_value: str) -> str | None:
     compact = re.sub(r"\s+", "", raw_value)
-    if not compact:
-        return "Formula input is required."
-    if not re.fullmatch(r"[A-Za-z0-9().]+", compact):
-        return "Enter a valid solid formula using element symbols and numeric stoichiometry, such as Li7La3Zr2O12."
-
-    try:
-        composition = parse_composition(compact)
-    except ValueError:
-        return "Enter a valid solid formula using element symbols, parentheses, and numeric stoichiometry, such as Li3Fe2(PO4)3."
-
-    invalid_elements = sorted(element for element in composition if element not in VALID_ELEMENT_SYMBOLS)
-    if invalid_elements:
-        return f"Unknown element symbol(s): {', '.join(invalid_elements)}."
-    return None
+    return bool(compact) and bool(SOLID_FORMULA_PATTERN.fullmatch(compact))
 
 
 def normalize_formula(raw_formula: str) -> str:
