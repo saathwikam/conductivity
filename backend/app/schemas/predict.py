@@ -17,3 +17,4 @@ class PredictResponse(BaseModel):
     matched_record: dict
     phase: PhaseLiteral
     narrative: str
+    warnings: list[str] = Field(default_factory=list)

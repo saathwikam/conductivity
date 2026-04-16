@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from difflib import SequenceMatcher
 from pathlib import Path
+import re
 from typing import Any
 
 import pandas as pd
@@ -11,17 +12,27 @@ from app.services.chemistry import (
     build_solid_graph_stats,
     is_liquid_like_input,
     is_solid_like_formula,
+    invalid_solid_formula_reason,
     normalize_formula,
     parse_composition,
 )
 from app.services.dataset_store import load_liquid_dataset, load_solid_dataset
-from app.services.liquid_preprocessor import parse_liquid_formulation
+from app.services.liquid_preprocessor import invalid_liquid_formulation_reason, parse_liquid_formulation
 from app.services.liquid_model_runner import LiquidModelRunner
 from app.services.solid_model_runner import SolidAlignnRunner
 
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
 MODELS_DIR = ROOT_DIR / "models"
+COMMON_ANIONS = {"O", "F", "S", "Se", "Cl", "Br", "I", "N"}
+KNOWN_LITHIUM_SOLID_SCAFFOLDS = (
+    frozenset({"Li", "La", "Zr", "O"}),  # LLZO / garnet-like oxides
+    frozenset({"Li", "La", "Ti", "O"}),  # LLTO-type perovskites
+    frozenset({"Li", "Al", "Ti", "P", "O"}),  # LATP-type NASICONs
+    frozenset({"Li", "Al", "Ge", "P", "O"}),  # LAGP-type NASICONs
+    frozenset({"Li", "P", "S"}),  # sulfide / argyrodite bases, with optional halides
+    frozenset({"Li", "Si", "P", "O"}),  # LISICON-type oxides
+)
 
 
 class PredictionService:
@@ -45,8 +56,12 @@ class PredictionService:
     def _predict_solid(self, formula: str) -> dict[str, Any]:
         if is_liquid_like_input(formula):
             raise ValueError("Solid mode expects a solid electrolyte chemical formula, not a liquid formulation.")
+        invalid_reason = invalid_solid_formula_reason(formula)
+        if invalid_reason:
+            raise ValueError(invalid_reason)
 
         normalized = normalize_formula(formula)
+        lithium_warnings = self._solid_lithium_warnings(normalized)
         dataset = load_solid_dataset()
         exact = dataset[dataset["formula_key"] == normalized.replace(" ", "").lower()]
         if not exact.empty:
@@ -56,12 +71,10 @@ class PredictionService:
         graph_stats = build_solid_graph_stats(normalized)
         try:
             trained_result = self.solid_model_runner.predict(normalized)
-        except ValueError as exc:
-            if self.solid_model_runner.strict_mode_enabled():
-                raise ValueError(
-                    "No matching crystal structure was found in Materials Project for this solid formula, "
-                    "so solid ALIGNN prediction could not be completed."
-                ) from exc
+        except ValueError:
+            lithium_warnings.append(
+                "Solid structure inference was unavailable, so this result uses the closest dataset match."
+            )
             trained_result = None
         prediction = float(trained_result["prediction"]) if trained_result else float(match["log10_ionic_conductivity"])
         record = {
@@ -87,6 +100,7 @@ class PredictionService:
             "matched_record": record,
             "phase": "solid",
             "narrative": narrative,
+            "warnings": lithium_warnings,
         }
 
     def _predict_liquid(self, formulation: str) -> dict[str, Any]:
@@ -94,6 +108,10 @@ class PredictionService:
             raise ValueError(
                 "Liquid mode expects a liquid electrolyte formulation such as 'LiPF6 in EC/EMC', not a solid formula."
             )
+        invalid_reason = invalid_liquid_formulation_reason(formulation)
+        if invalid_reason:
+            raise ValueError(invalid_reason)
+        lithium_warnings: list[str] = []
 
         dataset = load_liquid_dataset()
         key = formulation.replace(" ", "").lower()
@@ -106,12 +124,6 @@ class PredictionService:
         liquid_payload = parse_liquid_formulation(
             formulation,
             float(match["temperature_c"]),
-            component_amounts={
-                "PC": float(match["pc_g"]),
-                "EC": float(match["ec_g"]),
-                "EMC": float(match["emc_g"]),
-                "LiPF6": float(match["lipf6_g"]),
-            },
         )
         trained_result = self.liquid_model_runner.predict(liquid_payload)
         prediction = float(trained_result["prediction"]) if trained_result else float(match["ln_ionic_conductivity"])
@@ -136,7 +148,68 @@ class PredictionService:
                 if trained_result
                 else f"Matched against the closest liquid formulation signature for {record['formulation']}."
             ),
+            "warnings": lithium_warnings,
         }
+
+    def _solid_lithium_warnings(self, formula: str) -> list[str]:
+        composition = parse_composition(formula)
+        lithium_amount = composition.get("Li", 0.0)
+        if lithium_amount <= 0:
+            raise ValueError("Solid electrolyte mode requires a lithium-containing formula.")
+
+        warnings = []
+        total_atoms = sum(composition.values())
+        lithium_fraction = lithium_amount / total_atoms if total_atoms else 0.0
+        known_lithium_electrolyte = self._matches_known_lithium_solid_scaffold(composition)
+        leading_lithium = formula.replace(" ", "").startswith("Li")
+        lithium_dominant = self._lithium_is_dominant_mobile_cation(composition)
+
+        if not leading_lithium and not known_lithium_electrolyte:
+            warnings.append(
+                "Lithium is present, but it is not the leading element in the formula; verify that this is a lithium-ion electrolyte."
+            )
+        if not lithium_dominant and not known_lithium_electrolyte:
+            warnings.append(
+                "Lithium is present, but it is not the dominant non-anion element; verify that this is primarily a lithium-ion electrolyte."
+            )
+        if lithium_fraction < 0.10 and not known_lithium_electrolyte:
+            warnings.append(
+                "Lithium is present at a low stoichiometric fraction, so this may not behave like a lithium-dominant electrolyte."
+            )
+        return warnings
+
+    def _lithium_is_dominant_mobile_cation(self, composition: dict[str, float]) -> bool:
+        lithium_amount = composition.get("Li", 0.0)
+        cation_amounts = [
+            amount
+            for element, amount in composition.items()
+            if element != "Li" and element not in COMMON_ANIONS
+        ]
+        return not cation_amounts or lithium_amount >= max(cation_amounts)
+
+    def _matches_known_lithium_solid_scaffold(self, composition: dict[str, float]) -> bool:
+        elements = frozenset(composition)
+        lithium_amount = composition.get("Li", 0.0)
+        if lithium_amount <= 0:
+            return False
+        return any(scaffold.issubset(elements) for scaffold in KNOWN_LITHIUM_SOLID_SCAFFOLDS)
+
+    def _liquid_lithium_warnings(self, formulation: str) -> list[str]:
+        lowered = formulation.lower()
+        has_lithium_component = (
+            any(component in lowered for component in ("lipf6", "lifsi"))
+            or parse_composition(formulation).get("Li", 0.0) > 0
+        )
+        if not has_lithium_component:
+            raise ValueError("Liquid electrolyte mode requires a lithium salt or lithium-containing formulation.")
+
+        leading_component = re.split(r"\s+in\s+|/|\+|,|\|", formulation.strip(), maxsplit=1, flags=re.IGNORECASE)[0]
+        warnings = []
+        if "li" not in leading_component.lower():
+            warnings.append(
+                "Lithium is present, but it is not in the leading formulation component; verify the lithium salt content before trusting the prediction."
+            )
+        return warnings
 
     def _closest_solid_match(self, dataset: pd.DataFrame, formula: str) -> pd.Series:
         target_comp = parse_composition(formula)

@@ -17,6 +17,8 @@ class SolidAlignnRunner:
         self.model_path = model_path
 
     def available(self) -> bool:
+        if os.environ.get("ENABLE_SOLID_ALIGNN") != "1":
+            return False
         return self.model_path.exists() and ALIGNN_ENV_PYTHON.exists() and PREDICT_SCRIPT.exists() and SOLID_CONFIG.exists()
 
     def predict(self, formula: str) -> dict | None:
@@ -55,4 +57,4 @@ class SolidAlignnRunner:
             raise ValueError(f"Unexpected solid ALIGNN output: {output}") from exc
 
     def strict_mode_enabled(self) -> bool:
-        return self.available() and bool(os.environ.get("MP_API_KEY"))
+        return os.environ.get("ENABLE_SOLID_ALIGNN") == "1" and self.available() and bool(os.environ.get("MP_API_KEY"))

@@ -37,6 +37,8 @@ class LiquidModelRunner:
         return None, None
 
     def available(self) -> bool:
+        if os.environ.get("ENABLE_LIQUID_MODEL") != "1":
+            return False
         model_path, meta_path = self._resolved_paths()
         python_executable = self._python_executable()
         return (
@@ -47,6 +49,9 @@ class LiquidModelRunner:
         )
 
     def predict(self, payload: dict) -> dict | None:
+        if os.environ.get("ENABLE_LIQUID_MODEL") != "1":
+            return None
+
         model_path, meta_path = self._resolved_paths()
         python_executable = self._python_executable()
         if (
