@@ -14,6 +14,7 @@ from app.services.chemistry import (
     is_solid_like_formula,
     invalid_solid_formula_reason,
     normalize_formula,
+    parse_composition,
 )
 from app.services.dataset_store import load_liquid_dataset, load_solid_dataset
 from app.services.liquid_preprocessor import invalid_liquid_formulation_reason, parse_liquid_formulation
@@ -65,6 +66,7 @@ class PredictionService:
         lithium_warnings: list[str] = []
         dataset = load_solid_dataset()
         exact = dataset[dataset["formula_key"] == normalized.replace(" ", "").lower()]
+        exact_match_found = not exact.empty
         if not exact.empty:
             match = exact.iloc[0]
         else:
@@ -91,7 +93,14 @@ class PredictionService:
                 f"{trained_result['material_id']}."
             )
         else:
-            narrative = f"Matched against the closest solid electrolyte signature for {record['formula']}."
+            if exact_match_found:
+                narrative = f"Matched against the solid electrolyte dataset entry for {record['formula']}."
+            else:
+                narrative = f"Matched against the closest solid electrolyte signature for {record['formula']}."
+                lithium_warnings.append(
+                    "Valid lithium compound, but it is not directly covered by the current solid dataset; "
+                    "this fallback prediction may have lower confidence."
+                )
         return {
             "prediction": prediction,
             "graph_stats": graph_stats,
@@ -114,10 +123,16 @@ class PredictionService:
         dataset = load_liquid_dataset()
         key = formulation.replace(" ", "").lower()
         exact = dataset[dataset["formulation_key"] == key]
+        request_components = self._liquid_component_names(formulation)
         if not exact.empty:
             match = exact.iloc[0]
         else:
             match = self._closest_liquid_match(dataset, formulation)
+            if not self._liquid_match_is_reliable(request_components, match["formulation"]):
+                raise ValueError(
+                    "No reliable liquid dataset match was found for this salt and solvent combination. "
+                    "Try a formulation covered by the current dataset."
+                )
         graph_stats = build_liquid_graph_stats(formulation)
         liquid_payload = parse_liquid_formulation(
             formulation,
@@ -180,11 +195,27 @@ class PredictionService:
         return ranked.sort_values("score", ascending=False).iloc[0]
 
     def _closest_liquid_match(self, dataset: pd.DataFrame, formulation: str) -> pd.Series:
+        request_components = self._liquid_component_names(formulation)
+
+        def score(candidate: str) -> float:
+            candidate_components = self._liquid_component_names(candidate)
+            shared = len(request_components & candidate_components)
+            missing = len(request_components - candidate_components)
+            extra = len(candidate_components - request_components)
+            text_similarity = SequenceMatcher(None, candidate.lower(), formulation.lower()).ratio()
+            return (shared * 4.0) - (missing * 5.0) - (extra * 2.0) + text_similarity
+
         ranked = dataset.copy()
-        ranked["score"] = ranked["formulation"].apply(
-            lambda candidate: SequenceMatcher(None, candidate.lower(), formulation.lower()).ratio()
-        )
+        ranked["score"] = ranked["formulation"].apply(score)
         return ranked.sort_values("score", ascending=False).iloc[0]
 
     def _weight_status(self, path: Path) -> str:
         return str(path.name if path.exists() else "dataset_fallback")
+
+    def _liquid_component_names(self, formulation: str) -> set[str]:
+        payload = parse_liquid_formulation(formulation)
+        return {component["component"] for component in payload["components"]}
+
+    def _liquid_match_is_reliable(self, request_components: set[str], candidate_formulation: str) -> bool:
+        candidate_components = self._liquid_component_names(candidate_formulation)
+        return request_components == candidate_components
