@@ -167,7 +167,7 @@ export default function App() {
           <div>
             <p className="font-display text-sm uppercase tracking-[0.45em] text-white/50">Cyber-Lab Portal</p>
             <h1 className="mt-3 font-display text-4xl uppercase tracking-[0.18em] text-white sm:text-5xl">
-              Ionic SL
+              IonPredict AI
             </h1>
           </div>
           {phase ? (
