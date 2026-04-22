@@ -75,10 +75,10 @@ def parse_composition(raw_formula: str) -> dict[str, float]:
             amount, index = read_number(end)
             stack[-1][element] = stack[-1].get(element, 0.0) + amount
             continue
-        raise ValueError(f"Unexpected formula token: {char}.")
+        raise ValueError("Invalid solid formula.")
 
     if len(stack) != 1:
-        raise ValueError("Unmatched opening parenthesis.")
+        raise ValueError("Invalid solid formula.")
     return stack[0]
 
 

@@ -14,7 +14,6 @@ from app.services.chemistry import (
     is_solid_like_formula,
     invalid_solid_formula_reason,
     normalize_formula,
-    parse_composition,
 )
 from app.services.dataset_store import load_liquid_dataset, load_solid_dataset
 from app.services.liquid_preprocessor import invalid_liquid_formulation_reason, parse_liquid_formulation
@@ -61,6 +60,8 @@ class PredictionService:
             raise ValueError(invalid_reason)
 
         normalized = normalize_formula(formula)
+        if "Li" not in normalized:
+            raise ValueError("Solid electrolyte mode requires a lithium-containing formula.")
         lithium_warnings: list[str] = []
         dataset = load_solid_dataset()
         exact = dataset[dataset["formula_key"] == normalized.replace(" ", "").lower()]
@@ -148,35 +149,11 @@ class PredictionService:
             "warnings": lithium_warnings,
         }
 
-    def _solid_lithium_warnings(self, formula: str) -> list[str]:
-        composition = parse_composition(formula)
-        lithium_amount = composition.get("Li", 0.0)
-        if lithium_amount <= 0:
-            raise ValueError("Solid electrolyte mode requires a lithium-containing formula.")
-
-        return []
-
-    def _lithium_is_dominant_mobile_cation(self, composition: dict[str, float]) -> bool:
-        lithium_amount = composition.get("Li", 0.0)
-        cation_amounts = [
-            amount
-            for element, amount in composition.items()
-            if element != "Li" and element not in COMMON_ANIONS
-        ]
-        return not cation_amounts or lithium_amount >= max(cation_amounts)
-
-    def _matches_known_lithium_solid_scaffold(self, composition: dict[str, float]) -> bool:
-        elements = frozenset(composition)
-        lithium_amount = composition.get("Li", 0.0)
-        if lithium_amount <= 0:
-            return False
-        return any(scaffold.issubset(elements) for scaffold in KNOWN_LITHIUM_SOLID_SCAFFOLDS)
-
     def _liquid_lithium_warnings(self, formulation: str) -> list[str]:
         lowered = formulation.lower()
         has_lithium_component = (
-            any(component in lowered for component in ("lipf6", "lifsi"))
-            or parse_composition(formulation).get("Li", 0.0) > 0
+            any(component in lowered for component in ("lipf6", "libf4", "litfsi", "lifsi", "liclo4"))
+            or "li" in formulation
         )
         if not has_lithium_component:
             raise ValueError("Liquid electrolyte mode requires a lithium salt or lithium-containing formulation.")
