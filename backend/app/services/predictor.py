@@ -61,7 +61,7 @@ class PredictionService:
             raise ValueError(invalid_reason)
 
         normalized = normalize_formula(formula)
-        lithium_warnings = self._solid_lithium_warnings(normalized)
+        lithium_warnings: list[str] = []
         dataset = load_solid_dataset()
         exact = dataset[dataset["formula_key"] == normalized.replace(" ", "").lower()]
         if not exact.empty:
@@ -72,9 +72,6 @@ class PredictionService:
         try:
             trained_result = self.solid_model_runner.predict(normalized)
         except ValueError:
-            lithium_warnings.append(
-                "Solid structure inference was unavailable, so this result uses the closest dataset match."
-            )
             trained_result = None
         prediction = float(trained_result["prediction"]) if trained_result else float(match["log10_ionic_conductivity"])
         record = {
@@ -157,26 +154,7 @@ class PredictionService:
         if lithium_amount <= 0:
             raise ValueError("Solid electrolyte mode requires a lithium-containing formula.")
 
-        warnings = []
-        total_atoms = sum(composition.values())
-        lithium_fraction = lithium_amount / total_atoms if total_atoms else 0.0
-        known_lithium_electrolyte = self._matches_known_lithium_solid_scaffold(composition)
-        leading_lithium = formula.replace(" ", "").startswith("Li")
-        lithium_dominant = self._lithium_is_dominant_mobile_cation(composition)
-
-        if not leading_lithium and not known_lithium_electrolyte:
-            warnings.append(
-                "Lithium is present, but it is not the leading element in the formula; verify that this is a lithium-ion electrolyte."
-            )
-        if not lithium_dominant and not known_lithium_electrolyte:
-            warnings.append(
-                "Lithium is present, but it is not the dominant non-anion element; verify that this is primarily a lithium-ion electrolyte."
-            )
-        if lithium_fraction < 0.10 and not known_lithium_electrolyte:
-            warnings.append(
-                "Lithium is present at a low stoichiometric fraction, so this may not behave like a lithium-dominant electrolyte."
-            )
-        return warnings
+        return []
 
     def _lithium_is_dominant_mobile_cation(self, composition: dict[str, float]) -> bool:
         lithium_amount = composition.get("Li", 0.0)

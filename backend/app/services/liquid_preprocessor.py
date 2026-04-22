@@ -59,7 +59,7 @@ def invalid_liquid_formulation_reason(formulation: str) -> str | None:
         if token.strip()
     ]
     if len(tokens) < 2:
-        return "Liquid mode expects a supported formulation such as LiPF6 in EC/EMC or LiBF4 in PC/EC."
+        return "Liquid mode expects a supported formulation such as LiPF6 in EC/EMC, LiPF6 in EC/DMC, or LiBF4 in PC/EC."
 
     unknown_tokens = [
         token
@@ -77,7 +77,7 @@ def invalid_liquid_formulation_reason(formulation: str) -> str | None:
     if "salt" not in roles:
         return "Liquid electrolyte mode requires a supported lithium salt such as LiPF6, LiBF4, LiTFSI, LiFSI, or LiClO4."
     if "solvent" not in roles:
-        return "Liquid electrolyte mode requires at least one supported solvent such as EC, EMC, or PC."
+        return "Liquid electrolyte mode requires at least one supported solvent such as EC, EMC, DMC, or PC."
     return None
 
 

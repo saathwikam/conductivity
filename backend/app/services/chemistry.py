@@ -100,16 +100,16 @@ def invalid_solid_formula_reason(raw_value: str) -> str | None:
     if not compact:
         return "Formula input is required."
     if not re.fullmatch(r"[A-Za-z0-9().]+", compact):
-        return "Enter a valid solid formula using element symbols and numeric stoichiometry, such as Li7La3Zr2O12."
+        return "Enter a valid solid formula."
 
     try:
         composition = parse_composition(compact)
     except ValueError:
-        return "Enter a valid solid formula using element symbols, parentheses, and numeric stoichiometry, such as Li3Fe2(PO4)3."
+        return "Enter a valid solid formula."
 
     invalid_elements = sorted(element for element in composition if element not in VALID_ELEMENT_SYMBOLS)
     if invalid_elements:
-        return f"Unknown element symbol(s): {', '.join(invalid_elements)}."
+        return "Enter a valid solid formula."
     return None
 
 
