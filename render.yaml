@@ -16,4 +16,4 @@ services:
     staticPublishPath: dist
     envVars:
       - key: VITE_API_BASE_URL
-        value: https://conductivity.onrender.com
+        value: https://conductivity-back.onrender.com

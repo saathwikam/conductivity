@@ -2,7 +2,7 @@ const API_BASE =
   import.meta.env.VITE_API_BASE_URL ||
   (typeof window !== "undefined" && window.location.hostname === "localhost"
     ? "http://127.0.0.1:8000"
-    : "https://conductivity.onrender.com");
+    : "https://conductivity-back.onrender.com");
 
 export async function predict(payload) {
   const response = await fetch(`${API_BASE}/predict`, {
