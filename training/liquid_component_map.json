@@ -14,6 +14,11 @@
     "smiles": "COC(OCC)=O",
     "role": "solvent"
   },
+  "DMC": {
+    "name": "Dimethyl carbonate",
+    "smiles": "COC(=O)OC",
+    "role": "solvent"
+  },
   "LiPF6": {
     "name": "Lithium hexafluorophosphate",
     "smiles": "[Li]P(F)(F)(F)(F)(F)F",
