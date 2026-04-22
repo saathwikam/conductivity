@@ -99,7 +99,7 @@ class PredictionService:
                 narrative = f"Matched against the closest solid electrolyte signature for {record['formula']}."
                 lithium_warnings.append(
                     "Valid lithium compound, but it is not directly covered by the current solid dataset; "
-                    "this fallback prediction may have lower confidence."
+                    "this prediction is a low-confidence approximation based on the nearest available compound."
                 )
         return {
             "prediction": prediction,
@@ -126,13 +126,10 @@ class PredictionService:
         request_components = self._liquid_component_names(formulation)
         if not exact.empty:
             match = exact.iloc[0]
+            match_quality = "exact"
         else:
             match = self._closest_liquid_match(dataset, formulation)
-            if not self._liquid_match_is_reliable(request_components, match["formulation"]):
-                raise ValueError(
-                    "No reliable liquid dataset match was found for this salt and solvent combination. "
-                    "Try a formulation covered by the current dataset."
-                )
+            match_quality = self._liquid_match_quality(request_components, match["formulation"])
         graph_stats = build_liquid_graph_stats(formulation)
         liquid_payload = parse_liquid_formulation(
             formulation,
@@ -161,7 +158,24 @@ class PredictionService:
                 if trained_result
                 else f"Matched against the closest liquid formulation signature for {record['formulation']}."
             ),
-            "warnings": lithium_warnings,
+            "warnings": (
+                lithium_warnings
+                + (
+                    [
+                        "This shorthand liquid formulation was mapped to the closest compatible dataset blend; "
+                        "prediction confidence may be lower than an exact covered formulation."
+                    ]
+                    if match_quality == "compatible"
+                    else (
+                        [
+                            "Valid liquid formulation, but it is not directly covered by the current liquid dataset; "
+                            "this prediction is a low-confidence approximation based on the nearest available formulation."
+                        ]
+                        if match_quality == "none"
+                        else []
+                    )
+                )
+            ),
         }
 
     def _liquid_lithium_warnings(self, formulation: str) -> list[str]:
@@ -216,6 +230,28 @@ class PredictionService:
         payload = parse_liquid_formulation(formulation)
         return {component["component"] for component in payload["components"]}
 
-    def _liquid_match_is_reliable(self, request_components: set[str], candidate_formulation: str) -> bool:
+    def _liquid_match_quality(self, request_components: set[str], candidate_formulation: str) -> str:
         candidate_components = self._liquid_component_names(candidate_formulation)
-        return request_components == candidate_components
+        if request_components == candidate_components:
+            return "exact"
+
+        request_profile = self._liquid_component_profile(request_components)
+        candidate_profile = self._liquid_component_profile(candidate_components)
+
+        same_salts = request_profile["salts"] == candidate_profile["salts"]
+        solvent_subset = request_profile["solvents"].issubset(candidate_profile["solvents"])
+        no_extra_salts = candidate_profile["salts"].issubset(request_profile["salts"])
+
+        if same_salts and no_extra_salts and solvent_subset:
+            return "compatible"
+        return "none"
+
+    def _liquid_component_profile(self, component_names: set[str]) -> dict[str, set[str]]:
+        payload = parse_liquid_formulation(" | ".join(sorted(component_names)))
+        salts = {component["component"] for component in payload["components"] if component["role"].lower() == "salt"}
+        solvents = {
+            component["component"]
+            for component in payload["components"]
+            if component["role"].lower() == "solvent"
+        }
+        return {"salts": salts, "solvents": solvents}
