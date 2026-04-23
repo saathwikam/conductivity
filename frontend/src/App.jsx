@@ -19,8 +19,8 @@ const PHASE_CONTENT = {
     title: "Liquid Electrolyte",
     accentClass: "bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.45),transparent_65%)]",
     icon: <FlaskConical className="h-8 w-8" />,
-    placeholder: "PC:1.509g | EC:1.506g | EMC:7.2024g | LiPF6:0.3006g",
-    helper: "Enter a liquid formulation covered by the current LiPF6 PC/EC/EMC dataset.",
+    placeholder: "LiPF6 in EC/EMC",
+    helper: "Enter a liquid electrolyte formulation as a chemistry string.",
   },
 };
 
@@ -34,6 +34,10 @@ const EXAMPLES = {
     "Li2S",
   ],
   liquid: [
+    "LiPF6 in EC/EMC",
+    "LiPF6 in EC/EMC/DMC",
+    "LiBF4 in EC/EMC",
+    "LiTFSI in EC/EMC/DMC",
     "PC:1.509g | EC:1.506g | EMC:7.2024g | LiPF6:0.3006g",
     "PC:2.998g | EMC:7.2006g | LiPF6:0.3009g",
     "PC:2.7017g | EC:0.345g | EMC:7.209g | LiPF6:2.403g",
@@ -124,10 +128,12 @@ export default function App() {
 
     setLoading(true);
     setError("");
+    setResult(null);
     try {
       const data = await predict({ phase, formula });
       setResult(data);
     } catch (submissionError) {
+      setResult(null);
       setError(submissionError.message);
     } finally {
       setLoading(false);
@@ -167,7 +173,7 @@ export default function App() {
           <div>
             <p className="font-display text-sm uppercase tracking-[0.45em] text-white/50">Cyber-Lab Portal</p>
             <h1 className="mt-3 font-display text-4xl uppercase tracking-[0.18em] text-white sm:text-5xl">
-              IonPredict AI
+              Li-IonPredict AI
             </h1>
           </div>
           {phase ? (
@@ -227,7 +233,11 @@ export default function App() {
                     <div className="rounded-[1.6rem] border border-white/15 bg-black/20 p-[1px]">
                       <input
                         value={formula}
-                        onChange={(event) => setFormula(event.target.value)}
+                        onChange={(event) => {
+                          setFormula(event.target.value);
+                          setResult(null);
+                          setError("");
+                        }}
                         placeholder={current.placeholder}
                         className="w-full rounded-[1.55rem] border-0 bg-transparent px-6 py-5 text-xl text-white outline-none placeholder:text-white/25"
                       />

@@ -18,6 +18,10 @@ EXAMPLES = {
         "Li2S",
     ],
     "liquid": [
+        "LiPF6 in EC/EMC",
+        "LiPF6 in EC/EMC/DMC",
+        "LiBF4 in EC/EMC",
+        "LiTFSI in EC/EMC/DMC",
         "PC:1.509g | EC:1.506g | EMC:7.2024g | LiPF6:0.3006g",
         "PC:2.998g | EMC:7.2006g | LiPF6:0.3009g",
         "PC:2.7017g | EC:0.345g | EMC:7.209g | LiPF6:2.403g",
