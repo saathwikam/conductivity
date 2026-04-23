@@ -98,7 +98,7 @@ class PredictionService:
             else:
                 narrative = f"Matched against the closest solid electrolyte signature for {record['formula']}."
                 lithium_warnings.append(
-                    "Valid lithium compound, but it is not directly covered by the current solid dataset; "
+                    "Valid solid compound, but it is not directly covered by the current solid dataset; "
                     "this prediction is a low-confidence approximation based on the nearest available compound."
                 )
         return {
